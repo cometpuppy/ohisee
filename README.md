@@ -12,8 +12,30 @@
 
 ## Installation
 
-### Linux Manual
-Download the latest release and
-run it in the folder:
+### Manual
+Download the latest release
+
+Make it executable:
+```bash
+chmod +x ohisee
+```
+Run it from the folder:
 ```bash
 ./ohisee
+```
+
+### Automated for Global Use
+```bash
+# Download the latest release
+curl -fsSLO https://github.com/cometpuppy/ohisee/releases/download/0.8.0/ohisee
+
+# Make executable
+chmod +x ohisee
+
+# Move to /usr/local/bin
+sudo mv ohisee /usr/local/bin
+```
+Now just run from your terminal:
+```bash
+ohisee
+```
