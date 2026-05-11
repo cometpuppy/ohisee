@@ -11,11 +11,9 @@
 - Customizable Item config
 
 ## Installation
-*Temporary manually, later aviable with Brew*
 
-### Linux
-Download the latest release and extract it:
-tar -xzf ohisee-linux.tar.gz
-
-Run:
+### Linux Manual
+Download the latest release and
+run it in the folder:
+```bash
 ./ohisee
