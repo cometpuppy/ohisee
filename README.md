@@ -12,7 +12,9 @@
 
 ## Installation
 
-### Manual
+### Linux
+
+#### Manual
 Download the latest release
 
 Make it executable:
@@ -24,7 +26,7 @@ Run it from the folder:
 ./ohisee
 ```
 
-### Automated for Global Use
+#### Automated for Global Use
 ```bash
 sudo curl -L -o /usr/local/bin/ohisee https://github.com/cometpuppy/ohisee/releases/latest/download/ohisee && sudo chmod +x /usr/local/bin/ohisee
 ```
@@ -32,3 +34,8 @@ Now just run from your terminal:
 ```bash
 ohisee
 ```
+
+### Windows
+Download the ohisee.exe from the Releases Page
+
+Open it and Run anyway, it should launch in your Terminal
