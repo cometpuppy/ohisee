@@ -26,14 +26,7 @@ Run it from the folder:
 
 ### Automated for Global Use
 ```bash
-# Download the latest release
-curl -fsSLO https://github.com/cometpuppy/ohisee/releases/download/0.8.0/ohisee
-
-# Make executable
-chmod +x ohisee
-
-# Move to /usr/local/bin
-sudo mv ohisee /usr/local/bin
+sudo curl -L -o /usr/local/bin/ohisee https://github.com/cometpuppy/ohisee/releases/latest/download/ohisee && sudo chmod +x /usr/local/bin/ohisee
 ```
 Now just run from your terminal:
 ```bash
