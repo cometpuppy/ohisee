@@ -12,30 +12,29 @@
 
 ## Installation
 
-### Linux
+## Linux
 
-#### Manual
-Download the latest release
-
-Make it executable:
+### With Brew
 ```bash
-chmod +x ohisee
+# Add the Tap
+brew tap cometpuppy/homebrew-ohisee
+# Install OhISee
+brew install ohisee
 ```
-Run it from the folder:
+Now just run `ohisee` from your Terminal.
+
+### Manual
+Download the ohisee_linux_amd64/arm64.tar.gz from the Releases Page
+
+Extract it and run ./ohisee from the directory
 ```bash
+tar -xzf ohisee_linux_amd64.tar.gz
 ./ohisee
 ```
 
-#### Automated for Global Use
-```bash
-sudo curl -L -o /usr/local/bin/ohisee https://github.com/cometpuppy/ohisee/releases/latest/download/ohisee && sudo chmod +x /usr/local/bin/ohisee
-```
-Now just run from your terminal:
-```bash
-ohisee
-```
+## Windows
+Download the ohisee_windows_amd64.zip from the Releases Page
 
-### Windows
-Download the ohisee.exe from the Releases Page
+Extract it and run the ohisee.exe
 
-Open it and Run anyway, it should launch in your Terminal
+It will show a "Windows protected your PC" prompt — this is because OhISee is not code-signed, not because it's harmful. Click "More info" → "Run anyway".
