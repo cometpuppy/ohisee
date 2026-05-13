@@ -2,8 +2,7 @@
 
 **OhISee** is a TUI Item Tracker for Dark Souls Remastered
 
-![preview1](images/preset_menu.png)
-![preview2](images/keyitems_menu.png)
+![demo](images/demo.gif)
 
 ## Features
 - Check off every important Item in an Item Randomizer
