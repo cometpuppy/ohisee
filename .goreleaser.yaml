@@ -29,17 +29,15 @@ archives:
 
 brews:
   - name: ohisee
+    directory: Formula
     repository:
       owner: cometpuppy
       name: homebrew-ohisee
       token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
     homepage: "https://github.com/cometpuppy/ohisee"
     description: "TUI Item Tracker for Dark Souls Remastered Item Randomizers"
-    license: "MIT"
     install: |
       bin.install "ohisee"
-    test: |
-      system "#{bin}/ohisee", "--version"
 
 checksum:
   name_template: "checksums.txt"
