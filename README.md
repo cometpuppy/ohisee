@@ -16,7 +16,7 @@
 
 ### With Brew
 ```bash
-brew install cometpuppy/homebrew-ohisee/ohisee
+brew install cometpuppy/ohisee/ohisee
 ```
 Now just run `ohisee` from your Terminal.
 
