@@ -30,6 +30,7 @@ archives:
 brews:
   - name: ohisee
     directory: Formula
+    goarm: "6"
     repository:
       owner: cometpuppy
       name: homebrew-ohisee
