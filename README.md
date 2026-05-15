@@ -30,6 +30,15 @@ tar -xzf ohisee_linux_amd64.tar.gz
 ```
 
 ## Windows
+
+### With Scoop
+```bash
+scoop bucket add ohisee https://github.com/cometpuppy/scoop-ohisee
+scoop install ohisee
+```
+Now just run `ohisee` from your Terminal.
+
+### Manual
 Download the ohisee_windows_amd64.zip from the Releases Page
 
 Extract it and run the ohisee.exe
