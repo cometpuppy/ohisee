@@ -41,7 +41,7 @@ brews:
       bin.install "ohisee"
 
 
-  scoops:
+scoops:
   - name: ohisee
     repository:
       owner: cometpuppy
