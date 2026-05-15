@@ -6,8 +6,9 @@
 
 ## Features
 - Check off every important Item in an Item Randomizer
-- 3 Presets (Key Items, Standard & Full Run)
+- 5 Presets (Minimal, Key Items, Standard, Full Run and an own customizable preset)
 - Customizable Item config
+- Customizable Key Bindings via [`keys.json` file](#configuration)
 
 ## Installation
 
@@ -34,3 +35,12 @@ Download the ohisee_windows_amd64.zip from the Releases Page
 Extract it and run the ohisee.exe
 
 It will show a "Windows protected your PC" prompt — this is because OhISee is not code-signed, not because it's harmful. Click "More info" → "Run anyway".
+
+## Configuration
+
+The Keybindings (keys.json) and also current saved state (save.json) of OhISee can be edited in their Config Files
+
+| Platform | Path                                                 |
+| -------- | ---------------------------------------------------- |
+| Linux    | ~/.config/ohisee/                                    | 
+| Windows  | %AppData%/ohisee/                                    |
