@@ -40,6 +40,17 @@ brews:
     install: |
       bin.install "ohisee"
 
+
+  scoops:
+  - name: ohisee
+    repository:
+      owner: cometpuppy
+      name: scoop-ohisee
+      token: "{{ .Env.SCOOP_BUCKET_TOKEN }}"
+    homepage: "https://github.com/cometpuppy/ohisee"
+    description: "TUI Item Tracker for Dark Souls Remastered Item Randomizers"    
+
+
 checksum:
   name_template: "checksums.txt"
 
