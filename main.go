@@ -5,10 +5,216 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
+
+// -----------------------------------------------------------------------
+// Keybinds
+// -----------------------------------------------------------------------
+
+// validKeys is the set of key strings Bubble Tea / terminals can produce.
+var validKeys = map[string]bool{
+	// Letters
+	"a": true, "b": true, "c": true, "d": true, "e": true,
+	"f": true, "g": true, "h": true, "i": true, "j": true,
+	"k": true, "l": true, "m": true, "n": true, "o": true,
+	"p": true, "q": true, "r": true, "s": true, "t": true,
+	"u": true, "v": true, "w": true, "x": true, "y": true, "z": true,
+	"A": true, "B": true, "C": true, "D": true, "E": true,
+	"F": true, "G": true, "H": true, "I": true, "J": true,
+	"K": true, "L": true, "M": true, "N": true, "O": true,
+	"P": true, "Q": true, "R": true, "S": true, "T": true,
+	"U": true, "V": true, "W": true, "X": true, "Y": true, "Z": true,
+	// Digits
+	"0": true, "1": true, "2": true, "3": true, "4": true,
+	"5": true, "6": true, "7": true, "8": true, "9": true,
+	// Special
+	"enter": true, "esc": true, " ": true, "space": true,
+	"backspace": true, "delete": true, "tab": true,
+	"up": true, "down": true, "left": true, "right": true,
+	"home": true, "end": true, "pgup": true, "pgdown": true,
+	"f1": true, "f2": true, "f3": true, "f4": true,
+	"f5": true, "f6": true, "f7": true, "f8": true,
+	"f9": true, "f10": true, "f11": true, "f12": true,
+	// ctrl+letter
+	"ctrl+a": true, "ctrl+b": true, "ctrl+c": true, "ctrl+d": true,
+	"ctrl+e": true, "ctrl+f": true, "ctrl+g": true, "ctrl+h": true,
+	"ctrl+i": true, "ctrl+j": true, "ctrl+k": true, "ctrl+l": true,
+	"ctrl+m": true, "ctrl+n": true, "ctrl+o": true, "ctrl+p": true,
+	"ctrl+q": true, "ctrl+r": true, "ctrl+s": true, "ctrl+t": true,
+	"ctrl+u": true, "ctrl+v": true, "ctrl+w": true, "ctrl+x": true,
+	"ctrl+y": true, "ctrl+z": true,
+}
+
+// KeyBinds holds all configurable actions → list of keys
+type KeyBinds struct {
+	Up        []string `json:"up"`
+	Down      []string `json:"down"`
+	Check     []string `json:"check"`
+	Uncheck   []string `json:"uncheck"`
+	Reset     []string `json:"reset"`
+	Config    []string `json:"config"`
+	Preset    []string `json:"preset"`
+	Quit      []string `json:"quit"`
+	ToggleAll []string `json:"toggleAll"`
+	Confirm   []string `json:"confirm"`
+	Back      []string `json:"back"`
+}
+
+func defaultKeys() KeyBinds {
+	return KeyBinds{
+		Up:        []string{"up", "k"},
+		Down:      []string{"down", "j"},
+		Check:     []string{"l", "right", " "},
+		Uncheck:   []string{"h", "left"},
+		Reset:     []string{"R"},
+		Config:    []string{"c"},
+		Preset:    []string{"p"},
+		Quit:      []string{"q"},
+		ToggleAll: []string{"A"},
+		Confirm:   []string{"enter"},
+		Back:      []string{"esc"},
+	}
+}
+
+// matches returns true if key is in the action's list
+func (kb KeyBinds) matches(action string, key string) bool {
+	var list []string
+	switch action {
+	case "up":        list = kb.Up
+	case "down":      list = kb.Down
+	case "check":     list = kb.Check
+	case "uncheck":   list = kb.Uncheck
+	case "reset":     list = kb.Reset
+	case "config":    list = kb.Config
+	case "preset":    list = kb.Preset
+	case "quit":      list = kb.Quit
+	case "toggleAll": list = kb.ToggleAll
+	case "confirm":   list = kb.Confirm
+	case "back":      list = kb.Back
+	}
+	for _, k := range list {
+		if k == key {
+			return true
+		}
+	}
+	return false
+}
+
+// label returns a display string for an action e.g. "k/↑"
+func (kb KeyBinds) label(action string) string {
+	var list []string
+	switch action {
+	case "up":        list = kb.Up
+	case "down":      list = kb.Down
+	case "check":     list = kb.Check
+	case "uncheck":   list = kb.Uncheck
+	case "reset":     list = kb.Reset
+	case "config":    list = kb.Config
+	case "preset":    list = kb.Preset
+	case "quit":      list = kb.Quit
+	case "toggleAll": list = kb.ToggleAll
+	case "confirm":   list = kb.Confirm
+	case "back":      list = kb.Back
+	}
+	display := make([]string, len(list))
+	for i, k := range list {
+		switch k {
+		case " ":     display[i] = "space"
+		case "up":    display[i] = "↑"
+		case "down":  display[i] = "↓"
+		case "left":  display[i] = "←"
+		case "right": display[i] = "→"
+		default:      display[i] = k
+		}
+	}
+	return strings.Join(display, "/")
+}
+
+func keysPath() string {
+	dir, err := os.UserConfigDir()
+	if err != nil {
+		dir = "."
+	}
+	return filepath.Join(dir, "ohisee", "keys.json")
+}
+
+// keybindError holds a non-fatal error to show in the TUI
+type keybindError struct {
+	msg string
+}
+
+// loadKeys loads keys.json, validates it, and returns the binds + any error.
+// If no file exists it writes the defaults and returns them.
+func loadKeys() (KeyBinds, *keybindError) {
+	defaults := defaultKeys()
+	path := keysPath()
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		// No file — write defaults so the user can see/edit them
+		writeDefaultKeys(path, defaults)
+		return defaults, nil
+	}
+
+	var kb KeyBinds
+	if err := json.Unmarshal(data, &kb); err != nil {
+		return defaults, &keybindError{
+			msg: fmt.Sprintf("keys.json: invalid JSON: %v — using defaults", err),
+		}
+	}
+
+	// Validate all keys
+	allActions := map[string][]string{
+		"up": kb.Up, "down": kb.Down, "check": kb.Check,
+		"uncheck": kb.Uncheck, "reset": kb.Reset, "config": kb.Config,
+		"preset": kb.Preset, "quit": kb.Quit, "toggleAll": kb.ToggleAll,
+		"confirm": kb.Confirm, "back": kb.Back,
+	}
+
+	// Check for unknown key names
+	for action, keys := range allActions {
+		for _, k := range keys {
+			if !validKeys[k] {
+				return defaults, &keybindError{
+					msg: fmt.Sprintf("keys.json: unknown key %q in action %q — using defaults", k, action),
+				}
+			}
+		}
+	}
+
+	// Check for conflicts — same key assigned to two different actions
+	seen := make(map[string]string) // key → first action that claimed it
+	for action, keys := range allActions {
+		for _, k := range keys {
+			if k == "" || k == "ctrl+c" {
+				continue
+			}
+			if first, conflict := seen[k]; conflict && first != action {
+				return defaults, &keybindError{
+					msg: fmt.Sprintf("keys.json: key %q is used by both %q and %q — using defaults", k, first, action),
+				}
+			}
+			seen[k] = action
+		}
+	}
+
+	return kb, nil
+}
+
+func writeDefaultKeys(path string, kb KeyBinds) {
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		return
+	}
+	data, err := json.MarshalIndent(kb, "", "  ")
+	if err != nil {
+		return
+	}
+	os.WriteFile(path, data, 0644)
+}
 
 // -----------------------------------------------------------------------
 // Data
@@ -17,29 +223,43 @@ import (
 type Item struct {
 	Name     string `json:"name"`
 	Category string `json:"category"`
-	Found    bool   `json:"found"`
-	Enabled  bool   `json:"enabled"`
+}
+
+var minimalItems = []string{
+	"Lordvessel",
+	"Soul of Gravelord Nito",
+	"Soul of Bed of Chaos",
+	"Soul of Four Kings",
+	"Soul of Seath the Scaleless",
+	"Master Key",
+	"Key to the Seal",
+	"Key to New Londo Ruins",
+	"Crest of Artorias",
+	"Peculiar Doll",
+	"Broken Pendant",
+	"Weapon Smithbox",
 }
 
 var presets = map[string][]string{
+	"Minimal":   {"Progress", "Key Items", "Utility"},
 	"Key Items": {"Progress", "Key Items"},
 	"Standard":  {"Progress", "Key Items", "Utility"},
 	"Full Run":  {"Progress", "Key Items", "Utility", "Archive Keys"},
+	"Custom":    {},
 }
 
-var presetOrder = []string{"Key Items", "Standard", "Full Run"}
+var presetOrder = []string{"Minimal", "Key Items", "Standard", "Full Run", "Custom"}
 
 var presetDesc = map[string]string{
+	"Minimal":   "Essential items only",
 	"Key Items": "Progress + Key Items only",
 	"Standard":  "Progress + Key Items + Utility",
 	"Full Run":  "Everything including Archive Keys",
+	"Custom":    "Your own selection",
 }
 
-func defaultItems() []Item {
-	type entry struct {
-		name     string
-		category string
-	}
+func allItems() []Item {
+	type entry struct{ name, category string }
 	entries := []entry{
 		{"Lordvessel", "Progress"},
 		{"Soul of Gravelord Nito", "Progress"},
@@ -76,32 +296,52 @@ func defaultItems() []Item {
 		{"Archive Tower Giant Door Key", "Archive Keys"},
 		{"Archive Tower Giant Cell Key", "Archive Keys"},
 	}
-
 	items := make([]Item, len(entries))
 	for i, e := range entries {
-		items[i] = Item{Name: e.name, Category: e.category, Found: false, Enabled: true}
+		items[i] = Item{Name: e.name, Category: e.category}
 	}
 	return items
 }
 
-func applyPreset(items []Item, preset string) []Item {
+func enabledForPreset(preset string, customEnabled []string) map[string]bool {
+	enabled := make(map[string]bool)
+	if preset == "Custom" {
+		for _, name := range customEnabled {
+			enabled[name] = true
+		}
+		return enabled
+	}
+	if preset == "Minimal" {
+		for _, name := range minimalItems {
+			enabled[name] = true
+		}
+		return enabled
+	}
 	cats, ok := presets[preset]
 	if !ok {
-		return items
+		return enabled
 	}
 	catSet := make(map[string]bool)
 	for _, c := range cats {
 		catSet[c] = true
 	}
-	for i := range items {
-		items[i].Enabled = catSet[items[i].Category]
+	for _, item := range allItems() {
+		if catSet[item.Category] {
+			enabled[item.Name] = true
+		}
 	}
-	return items
+	return enabled
 }
 
 // -----------------------------------------------------------------------
 // Save / Load
 // -----------------------------------------------------------------------
+
+type SaveData struct {
+	ActivePreset  string   `json:"activePreset"`
+	FoundItems    []string `json:"foundItems"`
+	CustomEnabled []string `json:"customEnabled"`
+}
 
 func savePath() string {
 	dir, err := os.UserConfigDir()
@@ -111,31 +351,28 @@ func savePath() string {
 	return filepath.Join(dir, "ohisee", "save.json")
 }
 
-func saveItems(items []Item) error {
+func saveState(data SaveData) error {
 	path := savePath()
 	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
 		return err
 	}
-	data, err := json.Marshal(items)
+	b, err := json.Marshal(data)
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, data, 0644)
+	return os.WriteFile(path, b, 0644)
 }
 
-func loadItems() []Item {
+func loadState() SaveData {
 	data, err := os.ReadFile(savePath())
 	if err != nil {
-		return defaultItems()
+		return SaveData{}
 	}
-	var items []Item
-	if err := json.Unmarshal(data, &items); err != nil {
-		return defaultItems()
+	var save SaveData
+	if err := json.Unmarshal(data, &save); err == nil && save.ActivePreset != "" {
+		return save
 	}
-	if len(items) > 0 && items[0].Category == "" {
-		return defaultItems()
-	}
-	return items
+	return SaveData{}
 }
 
 // -----------------------------------------------------------------------
@@ -151,13 +388,11 @@ var (
 	subtitleStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#888888"))
 
-	// Normal category header — blank line above
 	categoryStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#4A90D9")).
 			Bold(true).
 			MarginTop(1)
 
-	// Compact category header — no margin
 	categoryCompactStyle = lipgloss.NewStyle().
 				Foreground(lipgloss.Color("#4A90D9")).
 				Bold(true)
@@ -184,6 +419,10 @@ var (
 
 	hintStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#555555"))
+
+	errorStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#E06C75")).
+			Bold(true)
 
 	selectedPresetStyle = lipgloss.NewStyle().
 				Foreground(lipgloss.Color("#E8B86D")).
@@ -215,8 +454,14 @@ const (
 // Model
 // -----------------------------------------------------------------------
 
+type viewItem struct {
+	Item
+	found   bool
+	enabled bool
+}
+
 type model struct {
-	items         []Item
+	items         []viewItem
 	visibleIdx    []int
 	cursor        int
 	configCursor  int
@@ -226,23 +471,57 @@ type model struct {
 	currentScreen screen
 	presetCursor  int
 	activePreset  string
+	customEnabled []string
+	fromCustom    bool
+	keys          KeyBinds
+	keyError      *keybindError
 }
 
 func initialModel() model {
-	items := loadItems()
+	save := loadState()
+	kb, kbErr := loadKeys()
+	base := allItems()
+
+	foundSet := make(map[string]bool)
+	for _, name := range save.FoundItems {
+		foundSet[name] = true
+	}
+
+	items := make([]viewItem, len(base))
+	for i, it := range base {
+		items[i] = viewItem{Item: it, found: foundSet[it.Name]}
+	}
+
 	m := model{
 		items:         items,
-		activePreset:  "",
+		customEnabled: save.CustomEnabled,
 		currentScreen: screenPreset,
+		keys:          kb,
+		keyError:      kbErr,
 	}
-	m.rebuildVisible()
+
+	if save.ActivePreset != "" {
+		for i, p := range presetOrder {
+			if p == save.ActivePreset {
+				m.presetCursor = i
+			}
+		}
+	}
+
 	return m
+}
+
+func (m *model) applyPresetEnabled(preset string) {
+	enabled := enabledForPreset(preset, m.customEnabled)
+	for i := range m.items {
+		m.items[i].enabled = enabled[m.items[i].Name]
+	}
 }
 
 func (m *model) rebuildVisible() {
 	m.visibleIdx = m.visibleIdx[:0]
 	for i, item := range m.items {
-		if item.Enabled {
+		if item.enabled {
 			m.visibleIdx = append(m.visibleIdx, i)
 		}
 	}
@@ -251,6 +530,20 @@ func (m *model) rebuildVisible() {
 	}
 	if m.cursor < 0 {
 		m.cursor = 0
+	}
+}
+
+func (m model) currentSaveData() SaveData {
+	var found []string
+	for _, item := range m.items {
+		if item.found {
+			found = append(found, item.Name)
+		}
+	}
+	return SaveData{
+		ActivePreset:  m.activePreset,
+		FoundItems:    found,
+		CustomEnabled: m.customEnabled,
 	}
 }
 
@@ -266,6 +559,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width = msg.Width
 		m.height = msg.Height
 	case tea.KeyMsg:
+		// ctrl+c is hardcoded and reserved — not configurable
+		if msg.String() == "ctrl+c" {
+			return m, tea.Quit
+		}
 		switch m.currentScreen {
 		case screenPreset:
 			return m.updatePreset(msg)
@@ -279,74 +576,94 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) updatePreset(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	switch msg.String() {
-	case "q", "ctrl+c":
+	k := msg.String()
+	switch {
+	case m.keys.matches("quit", k):
 		return m, tea.Quit
-	case "up", "k":
+	case m.keys.matches("up", k):
 		if m.presetCursor > 0 {
 			m.presetCursor--
 		}
-	case "down", "j":
+	case m.keys.matches("down", k):
 		if m.presetCursor < len(presetOrder)-1 {
 			m.presetCursor++
 		}
-	case "enter", " ":
+	case m.keys.matches("confirm", k):
 		chosen := presetOrder[m.presetCursor]
 		m.activePreset = chosen
-		m.items = applyPreset(m.items, chosen)
-		saveItems(m.items)
-		m.cursor = 0
-		m.rebuildVisible()
-		m.currentScreen = screenMain
+		if chosen == "Custom" {
+			for i := range m.items {
+				m.items[i].enabled = false
+			}
+			if len(m.customEnabled) > 0 {
+				savedEnabled := enabledForPreset("Custom", m.customEnabled)
+				for i := range m.items {
+					m.items[i].enabled = savedEnabled[m.items[i].Name]
+				}
+			}
+			m.rebuildVisible()
+			m.configCursor = 0
+			m.fromCustom = true
+			m.currentScreen = screenConfig
+		} else {
+			m.applyPresetEnabled(chosen)
+			m.cursor = 0
+			m.rebuildVisible()
+			saveState(m.currentSaveData())
+			m.currentScreen = screenMain
+		}
 	}
 	return m, nil
 }
 
 func (m model) updateMain(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	k := msg.String()
+
 	if m.confirming {
-		switch msg.String() {
-		case "y", "Y":
-			m.items = defaultItems()
-			m.items = applyPreset(m.items, m.activePreset)
-			saveItems(m.items)
+		switch {
+		case k == "y" || k == "Y":
+			for i := range m.items {
+				m.items[i].found = false
+			}
 			m.cursor = 0
 			m.confirming = false
-			m.rebuildVisible()
-		case "n", "N", "esc":
+			saveState(m.currentSaveData())
+		case k == "n" || k == "N" || m.keys.matches("back", k):
 			m.confirming = false
 		}
 		return m, nil
 	}
 
-	switch msg.String() {
-	case "q", "ctrl+c":
+	switch {
+	case m.keys.matches("quit", k):
 		return m, tea.Quit
-	case "up", "k":
+	case m.keys.matches("up", k):
 		if m.cursor > 0 {
 			m.cursor--
 		}
-	case "down", "j":
+	case m.keys.matches("down", k):
 		if m.cursor < len(m.visibleIdx)-1 {
 			m.cursor++
 		}
-	case " ", "right", "l":
+	case m.keys.matches("check", k):
 		if len(m.visibleIdx) > 0 {
 			idx := m.visibleIdx[m.cursor]
-			m.items[idx].Found = !m.items[idx].Found
-			saveItems(m.items)
+			m.items[idx].found = !m.items[idx].found
+			saveState(m.currentSaveData())
 		}
-	case "left", "h":
+	case m.keys.matches("uncheck", k):
 		if len(m.visibleIdx) > 0 {
 			idx := m.visibleIdx[m.cursor]
-			m.items[idx].Found = false
-			saveItems(m.items)
+			m.items[idx].found = false
+			saveState(m.currentSaveData())
 		}
-	case "R":
+	case m.keys.matches("reset", k):
 		m.confirming = true
-	case "c":
+	case m.keys.matches("config", k):
 		m.currentScreen = screenConfig
 		m.configCursor = 0
-	case "p":
+		m.fromCustom = false
+	case m.keys.matches("preset", k):
 		m.currentScreen = screenPreset
 		for i, p := range presetOrder {
 			if p == m.activePreset {
@@ -358,23 +675,91 @@ func (m model) updateMain(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) updateConfig(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	switch msg.String() {
-	case "q", "esc", "c":
-		m.currentScreen = screenMain
-	case "up", "k":
+	k := msg.String()
+
+	switch {
+	case m.keys.matches("back", k):
+		if m.fromCustom {
+			m.fromCustom = false
+			m.activePreset = ""
+			m.currentScreen = screenPreset
+		} else {
+			m.currentScreen = screenMain
+		}
+
+	case m.keys.matches("config", k):
+		if !m.fromCustom {
+			m.currentScreen = screenMain
+		}
+
+	case m.keys.matches("confirm", k):
+		if m.fromCustom {
+			var enabled []string
+			for _, item := range m.items {
+				if item.enabled {
+					enabled = append(enabled, item.Name)
+				}
+			}
+			m.customEnabled = enabled
+			m.fromCustom = false
+			m.rebuildVisible()
+			saveState(m.currentSaveData())
+			m.currentScreen = screenMain
+		} else {
+			m.toggleConfigItem()
+		}
+
+	case k == " ":
+		m.toggleConfigItem()
+
+	case m.keys.matches("toggleAll", k):
+		allEnabled := true
+		for _, item := range m.items {
+			if !item.enabled {
+				allEnabled = false
+				break
+			}
+		}
+		for i := range m.items {
+			m.items[i].enabled = !allEnabled
+		}
+		if m.activePreset == "Custom" || m.fromCustom {
+			var enabled []string
+			for _, item := range m.items {
+				if item.enabled {
+					enabled = append(enabled, item.Name)
+				}
+			}
+			m.customEnabled = enabled
+		}
+		m.rebuildVisible()
+		saveState(m.currentSaveData())
+
+	case m.keys.matches("up", k):
 		if m.configCursor > 0 {
 			m.configCursor--
 		}
-	case "down", "j":
+	case m.keys.matches("down", k):
 		if m.configCursor < len(m.items)-1 {
 			m.configCursor++
 		}
-	case " ", "enter":
-		m.items[m.configCursor].Enabled = !m.items[m.configCursor].Enabled
-		saveItems(m.items)
-		m.rebuildVisible()
 	}
 	return m, nil
+}
+
+func (m *model) toggleConfigItem() {
+	m.items[m.configCursor].enabled = !m.items[m.configCursor].enabled
+	if m.activePreset == "Custom" || m.fromCustom {
+		var enabled []string
+		for _, item := range m.items {
+			if item.enabled {
+				enabled = append(enabled, item.Name)
+			}
+		}
+		m.customEnabled = enabled
+	}
+	m.rebuildVisible()
+	saveState(m.currentSaveData())
 }
 
 // -----------------------------------------------------------------------
@@ -395,6 +780,11 @@ func (m model) View() string {
 func (m model) viewPreset() string {
 	content := titleStyle.Render("OhISee") + "\n"
 	content += subtitleStyle.Render("DS1 Item Randomizer Tracker") + "\n\n"
+
+	if m.keyError != nil {
+		content += errorStyle.Render("⚠ "+m.keyError.msg) + "\n\n"
+	}
+
 	content += subtitleStyle.Render("Select a preset to begin:") + "\n\n"
 
 	for i, p := range presetOrder {
@@ -411,7 +801,14 @@ func (m model) viewPreset() string {
 		content += fmt.Sprintf("%s%s\n   %s\n\n", cursor, name, hintStyle.Render(presetDesc[p]))
 	}
 
-	content += hintStyle.Render("↑/↓ k/j navigate • enter select • q quit")
+	upDown := m.keys.label("up") + "/" + m.keys.label("down")
+	content += hintStyle.Render(fmt.Sprintf(
+		"%s navigate • %s select • %s quit",
+		upDown,
+		m.keys.label("confirm"),
+		m.keys.label("quit"),
+	))
+
 	box := boxStyle.Render(content)
 	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, box)
 }
@@ -421,9 +818,9 @@ func (m model) viewMain() string {
 
 	found, total := 0, 0
 	for _, item := range m.items {
-		if item.Enabled {
+		if item.enabled {
 			total++
-			if item.Found {
+			if item.found {
 				found++
 			}
 		}
@@ -432,38 +829,32 @@ func (m model) viewMain() string {
 	content := titleStyle.Render(fmt.Sprintf("OhISee  [%d/%d]  %s", found, total, m.activePreset)) + "\n"
 
 	catHeader := categoryStyle
-	newline := "\n"
 	if compact {
 		catHeader = categoryCompactStyle
-		newline = "" // no blank line before first header in compact mode
 	}
 
 	lastCat := ""
 	for vi, idx := range m.visibleIdx {
 		item := m.items[idx]
-
 		if item.Category != lastCat {
 			lastCat = item.Category
 			if compact {
-				// No leading newline for very first header
 				if vi == 0 {
 					content += catHeader.Render("── "+item.Category+" ──") + "\n"
 				} else {
 					content += "\n" + catHeader.Render("── "+item.Category+" ──") + "\n"
 				}
 			} else {
-				_ = newline
 				content += catHeader.Render("── "+item.Category+" ──") + "\n"
 			}
 		}
-
 		cursor := "  "
 		if m.cursor == vi {
 			cursor = cursorStyle.Render("▶ ")
 		}
 		checkbox := "[ ]"
 		name := item.Name
-		if item.Found {
+		if item.found {
 			checkbox = "[✓]"
 			name = checkedStyle.Render(item.Name)
 		}
@@ -473,11 +864,17 @@ func (m model) viewMain() string {
 	if m.confirming {
 		content += "\n" + confirmStyle.Render("Reset all items? (y/n)")
 	} else {
-		sep := "\n"
-		if compact {
-			sep = "\n"
-		}
-		content += sep + hintStyle.Render("↑/↓ k/j • l/→ check • h/← uncheck • R reset • p preset • c config • q quit")
+		upDown := m.keys.label("up") + "/" + m.keys.label("down")
+		content += "\n" + hintStyle.Render(fmt.Sprintf(
+			"%s navigate • %s check • %s uncheck • %s reset • %s preset • %s config • %s quit",
+			upDown,
+			m.keys.label("check"),
+			m.keys.label("uncheck"),
+			m.keys.label("reset"),
+			m.keys.label("preset"),
+			m.keys.label("config"),
+			m.keys.label("quit"),
+		))
 	}
 
 	box := boxStyle.Render(content)
@@ -485,8 +882,22 @@ func (m model) viewMain() string {
 }
 
 func (m model) viewConfig() string {
-	content := titleStyle.Render("OhISee — Item Config") + "\n"
-	content += hintStyle.Render("Toggle individual items on/off") + "\n\n"
+	title := "OhISee — Item Config"
+	hint := "Toggle individual items on/off"
+	var backHint string
+	if m.fromCustom {
+		title = "OhISee — Custom Preset"
+		hint = "Toggle the items you want to track"
+		backHint = fmt.Sprintf("%s confirm • %s cancel",
+			m.keys.label("confirm"),
+			m.keys.label("back"),
+		)
+	} else {
+		backHint = fmt.Sprintf("%s back", m.keys.label("back"))
+	}
+
+	content := titleStyle.Render(title) + "\n"
+	content += hintStyle.Render(hint) + "\n\n"
 
 	currentCat := ""
 	for i, item := range m.items {
@@ -500,14 +911,21 @@ func (m model) viewConfig() string {
 		}
 		toggle := inactiveConfigStyle.Render("[off]")
 		name := disabledStyle.Render(item.Name)
-		if item.Enabled {
+		if item.enabled {
 			toggle = activeConfigStyle.Render("[ on]")
 			name = item.Name
 		}
 		content += fmt.Sprintf("%s%s %s\n", cursor, toggle, name)
 	}
 
-	content += "\n" + hintStyle.Render("↑/↓ k/j navigate • space/enter toggle • esc/c back")
+	upDown := m.keys.label("up") + "/" + m.keys.label("down")
+	content += "\n" + hintStyle.Render(fmt.Sprintf(
+		"%s navigate • space toggle • %s toggle all • %s",
+		upDown,
+		m.keys.label("toggleAll"),
+		backHint,
+	))
+
 	box := boxStyle.Render(content)
 	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, box)
 }
